@@ -1,14 +1,11 @@
 import requests
-from gevent import monkey
 from gevent.pool import Pool
 import gevent
-from PyRSS2Gen import RSS2, RSSItem
 import time
 import datetime
 from jinja2 import Template
-
-monkey.patch_socket()
-pool = Pool(20)
+from tasks import rss_generate_register
+from PyRSS2Gen import RSSItem
 
 
 def get_xugubao_news_content_image(news_id):
@@ -42,6 +39,7 @@ def get_xugubao_news(subj_ids=[9, 10, 723, 35, 469, 821], has_explain=False, cur
     if resp.status_code == 200:
         data = resp.json().get("data")
         messages, next_cursor = data.get("messages"), data.get("next_cursor")
+        pool = Pool(20)
 
         def add_content_image(msg):
             if msg.get("is_subscribed"):
@@ -74,6 +72,7 @@ def generate_content(msg):
     return Template(templte).render(msg=msg)
 
 
+@rss_generate_register("选股宝财经快讯", "https://xuangubao.cn/live")
 def generate_rss():
     messages, _ = get_xugubao_news()
 
@@ -84,8 +83,4 @@ def generate_rss():
                      "%Y-%m-%d %H:%M:%S", time.localtime(msg.get("created_at")))
                      ) for msg in messages]
 
-    rss = RSS2(title="选股宝财经快讯", link="https://xuangubao.cn/live",
-               description="", items=items, lastBuildDate=datetime.datetime.now(), ttl=60)
-
-    rss.write_xml(open("rss/xuangubaokuaixun.xml", "w",
-                       encoding="utf8"), encoding="utf8")
+    return items
